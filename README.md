@@ -1,8 +1,7 @@
 # tk_date_entry
 
 *tk_date_entry* is a lightweight, dependency-free Tkinter `DateEntry` widget
-with a drop-down calendar. It has zero external dependencies: it only requires the Python standard library
-(`tkinter`).
+with a drop-down calendar.
 
 The widget provides a single-line entry showing a date in a configurable
 format, with a drop-down calendar popup for visual date selection.
