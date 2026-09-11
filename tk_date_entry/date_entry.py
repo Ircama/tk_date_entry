@@ -158,6 +158,10 @@ class DateEntry(ttk.Frame):
                 datetime.date(2024, 9, 2 + day).strftime("%a")
                 for day in range(7)
             ]
+            # Full weekday names (used by the day tooltips, which cannot
+            # rely on strftime at runtime because the locale has already
+            # been restored to the process default by then).
+            weekdays_full = list(weekdays)
         except (locale.Error, ValueError):
             # Unknown locale: fall back to English names.
             months = [
@@ -170,12 +174,15 @@ class DateEntry(ttk.Frame):
                 "Friday", "Saturday", "Sunday",
             ]
             weekdays_abbr = [name[:3] for name in weekdays]
+            weekdays_full = list(weekdays)
         finally:
             if current:
                 try:
                     locale.setlocale(locale.LC_TIME, current)
                 except locale.Error:
                     pass
+
+        self._weekday_names_full = tuple(weekdays_full)
 
         return tuple(months), tuple(weekdays_abbr)
 
@@ -380,11 +387,19 @@ class DateEntry(ttk.Frame):
         # overrideredirect(True) after the window is mapped removes the
         # title bar and borders without creating the WS_POPUP window that
         # swallows the opening click (see the comment above).
+        #
+        # To avoid the title bar being visible for an instant (mapped
+        # window, then frameless), the window is mapped fully transparent
+        # (-alpha 0): the decorations are removed while the window is
+        # still invisible, and only then is it made opaque. The
+        # map-then-frameless order required on Windows is preserved.
+        window.attributes("-alpha", 0)
         window.update_idletasks()
         window.deiconify()
         window.update_idletasks()
         window.overrideredirect(True)
         window.update_idletasks()
+        window.attributes("-alpha", 1)
 
         # A frameless window is not kept above the parent by the window
         # manager: when the click that opens the popup activates the main
@@ -694,12 +709,17 @@ class DateEntry(ttk.Frame):
         header = ttk.Frame(frame)
         header.pack(fill="x", pady=(0, 8))
 
-        ttk.Button(
+        prev_button = ttk.Button(
             header,
             text="\u2039",  # single left-pointing angle quotation mark
             width=3,
             command=lambda: self._change_month(-1),
-        ).pack(side="left")
+        )
+        prev_button.pack(side="left")
+        # Tooltip with the name of the previous month in the locale.
+        self._bind_day_tooltip(
+            prev_button, self._month_name_offset(-1)
+        )
 
         center = ttk.Frame(header)
         center.pack(
@@ -741,12 +761,17 @@ class DateEntry(ttk.Frame):
             "<<ComboboxSelected>>", self._on_year_combo_selected
         )
 
-        ttk.Button(
+        next_button = ttk.Button(
             header,
             text="\u203a",  # single right-pointing angle quotation mark
             width=3,
             command=lambda: self._change_month(1),
-        ).pack(side="right")
+        )
+        next_button.pack(side="right")
+        # Tooltip with the name of the next month in the locale.
+        self._bind_day_tooltip(
+            next_button, self._month_name_offset(1)
+        )
 
         # Dedicated frame for the weekday/day grid (grid geometry manager)
         days_frame = ttk.Frame(frame)
@@ -762,11 +787,14 @@ class DateEntry(ttk.Frame):
         bottom = ttk.Frame(frame)
         bottom.pack(fill="x")
 
-        ttk.Button(
+        today_button = ttk.Button(
             bottom,
             text="Today",
             command=self._select_today,
-        ).pack(side="left")
+        )
+        today_button.pack(side="left")
+        # Tooltip with today's full date in the current locale.
+        self._bind_day_tooltip(today_button, self._full_date_text(datetime.date.today()))
 
         ttk.Button(
             bottom,
@@ -779,6 +807,14 @@ class DateEntry(ttk.Frame):
             text="Clear",
             command=self._clear_and_close,
         ).pack(side="right", padx=(0, 4))
+
+    def _month_name_offset(self, delta):
+        """Return the localized name of the month next to the displayed
+        one (delta = -1 for the previous month, +1 for the next)."""
+        month = self._display_month.month - 1 + delta
+        year = self._display_month.year + month // 12
+        month = month % 12
+        return f"{self._month_names[month]} {year}"
 
     def _year_values(self):
         """Return the list of selectable years (honoring mindate/maxdate)."""
@@ -975,10 +1011,6 @@ class DateEntry(ttk.Frame):
 
         self._build_popup()
 
-        self._display_month = candidate
-
-        self._build_popup()
-
     def _back_to_calendar(self):
         self._view = "calendar"
         self._build_popup()
@@ -989,10 +1021,18 @@ class DateEntry(ttk.Frame):
 
     def _full_date_text(self, day_date):
         """Return the full date in the current locale (e.g.
-        "mercoledì 20 agosto 2012")."""
+        "mercoledì 20 agosto 2012").
+
+        The names come from the pre-computed localized weekday/month
+        names, not from strftime: at tooltip time the C library locale
+        has already been restored to the process default (often "C",
+        i.e. English), so strftime would ignore the requested locale.
+        """
         try:
-            return day_date.strftime("%A %d %B %Y").capitalize()
-        except (ValueError, AttributeError):
+            weekday = self._weekday_names_full[day_date.weekday()]
+            month = self._month_names[day_date.month - 1]
+            return f"{weekday} {day_date.day} {month} {day_date.year}".capitalize()
+        except (IndexError, AttributeError):
             return day_date.isoformat()
 
     def _bind_day_tooltip(self, widget, text):
