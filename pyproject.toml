@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tk_date_entry"
+description = "A lightweight, dependency-free Tkinter DateEntry widget with a drop-down calendar, replacing tkcalendar."
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "EUPL-1.2"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Ircama" },
+]
+requires-python = ">=3.9"
+keywords = ["date", "calendar", "tkinter", "dateentry", "widget"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/Ircama/tk_date_entry"
+
+[tool.setuptools]
+packages = ["tk_date_entry"]
+
+[tool.setuptools.dynamic]
+version = { attr = "tk_date_entry.__version__.__version__" }
